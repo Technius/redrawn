@@ -1,0 +1,2 @@
+(store_file (@param 0) (@param 1)
+	(const_init (InitState "init")))

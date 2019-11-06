@@ -1,0 +1,5 @@
+(store_file (@param 0) (const_val (Value "data1"))
+    (store_file
+        (const_key (Key "file3"))
+        (const_val (Value "data1"))
+        (const_init (InitState "init"))))
