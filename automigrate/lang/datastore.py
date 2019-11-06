@@ -48,34 +48,46 @@ def build_datastore_v1_spec(input_types: List[str], output_type: str):
         lhs=type_ns.State, rhs=[type_ns.String, type_ns.String, type_ns.State],
         constraints=[
             E.BinaryExpr(
-                BOp.EQ,
-                E.PropertyExpr("size", E.ExprType.INT, E.ParamExpr(0)),
+                BOp.OR,
                 E.BinaryExpr(
-                    BOp.ADD,
+                    BOp.EQ,
+                    E.PropertyExpr("size", E.ExprType.INT, E.ParamExpr(0)),
+                    E.BinaryExpr(
+                        BOp.ADD,
+                        E.PropertyExpr("size", E.ExprType.INT, E.ParamExpr(3)),
+                        E.ConstExpr(1)
+                    )
+                ),
+                E.BinaryExpr(
+                    BOp.EQ,
+                    E.PropertyExpr("size", E.ExprType.INT, E.ParamExpr(0)),
                     E.PropertyExpr("size", E.ExprType.INT, E.ParamExpr(3)),
-                    E.ConstExpr(1)
-                )
-            )
+                ),
+            ),
+            E.BinaryExpr(BOp.GT, E.PropertyExpr("size", E.ExprType.INT, E.ParamExpr(0)), E.ConstExpr(0)),
         ]
     )
+    prods.add_func_production(name="noop", lhs=type_ns.State, rhs=[type_ns.State])
     prods.add_func_production(name="empty", lhs=type_ns.Empty, rhs=[type_ns.Empty])
 
     prog_spec = spec.spec.ProgramSpec("program", [getattr(type_ns, n) for n in input_types],
                                       getattr(type_ns, output_type))
-    return spec.spec.TyrellSpec(tys, prog_spec, prod_spec=prods)
+
+    preds = spec.spec.PredicateSpec()
+    return spec.spec.TyrellSpec(tys, prog_spec, prod_spec=prods, pred_spec=preds)
 
 
 class DatastoreV1Interpreter(PostOrderInterpreter):
-    def eval_Key(self, val):
+    def eval_Key(self, val: str):
         return val
 
-    def eval_Value(self, val):
+    def eval_Value(self, val: str):
         return val
 
-    def eval_InitState(self, val):
+    def eval_InitState(self, _: str):
         return State(status=StoreStatus.SUCCESS, store={})
 
-    def eval_StatusCode(self, val):
+    def eval_StatusCode(self, val: str):
         return StoreStatus(val)
 
     def eval_const_key(self, node, args):
@@ -93,8 +105,11 @@ class DatastoreV1Interpreter(PostOrderInterpreter):
     def eval_store_file(self, node, args):
         return State(status=StoreStatus.SUCCESS, store={**args[2].store, args[0]: args[1]})
 
-    def apply_status(self, state):
+    def eval_noop(self, node, args):
+        return args[0]
+
+    def apply_status(self, state: State):
         return int(state.status)
 
-    def apply_size(self, state):
+    def apply_size(self, state: State):
         return len(state.store)

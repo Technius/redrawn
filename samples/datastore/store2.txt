@@ -1,3 +1,4 @@
+;; depth = 5, loc = 7
 (store_file (@param 0) (const_val (Value "data1"))
     (store_file
         (const_key (Key "file3"))
