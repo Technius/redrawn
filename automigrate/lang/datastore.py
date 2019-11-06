@@ -22,13 +22,17 @@ def build_datastore_v1_spec(input_types: List[str], output_type: str):
     data = ["data1", "data2", "data3"]
     states = itertools.product(keys, data)
     tys = spec.spec.TypeSpec()
+    state_props = [
+        ("status", spec.expr.ExprType.INT),
+        ("size", spec.expr.ExprType.INT),
+    ]
     type_ns = types.SimpleNamespace(**{
         "Key": spec.type.EnumType("Key", keys),
         "Value": spec.type.EnumType("Value", data),
         "InitState": spec.type.EnumType("InitState", ["init"]),
         "String": spec.type.ValueType("String"),
         "Status": spec.type.ValueType("Status"),
-        "State": spec.type.ValueType("State", [("status", spec.expr.ExprType.INT), ("size", spec.expr.ExprType.INT)]),
+        "State": spec.type.ValueType("State", state_props),
         # See source file for tyrell.enumerator.smt.SmtEnumerator
         # Note that NO type can contain "Empty" or else SMT enumerator fails
         "Empty": spec.type.ValueType("Empty"),
@@ -36,8 +40,9 @@ def build_datastore_v1_spec(input_types: List[str], output_type: str):
     for t in type_ns.__dict__.values():
         tys.define_type(t)
 
-    import tyrell.spec.expr as E
-    BOp = E.BinaryOperator
+    from ..constraints import ExprDsl as E
+
+    def size_prop(expr): return E.property("size", E.ExprType.INT, expr)
 
     prods = spec.spec.ProductionSpec()
     prods.add_func_production(name="const_init", lhs=type_ns.State, rhs=[type_ns.InitState])
@@ -47,24 +52,11 @@ def build_datastore_v1_spec(input_types: List[str], output_type: str):
         name="store_file",
         lhs=type_ns.State, rhs=[type_ns.String, type_ns.String, type_ns.State],
         constraints=[
-            E.BinaryExpr(
-                BOp.OR,
-                E.BinaryExpr(
-                    BOp.EQ,
-                    E.PropertyExpr("size", E.ExprType.INT, E.ParamExpr(0)),
-                    E.BinaryExpr(
-                        BOp.ADD,
-                        E.PropertyExpr("size", E.ExprType.INT, E.ParamExpr(3)),
-                        E.ConstExpr(1)
-                    )
-                ),
-                E.BinaryExpr(
-                    BOp.EQ,
-                    E.PropertyExpr("size", E.ExprType.INT, E.ParamExpr(0)),
-                    E.PropertyExpr("size", E.ExprType.INT, E.ParamExpr(3)),
-                ),
-            ),
-            E.BinaryExpr(BOp.GT, E.PropertyExpr("size", E.ExprType.INT, E.ParamExpr(0)), E.ConstExpr(0)),
+            (
+                (size_prop(E.param(0)) == size_prop(E.param(3))) |
+                (size_prop(E.param(0)) == size_prop(E.param(3)) + 1)
+            ).tree,
+            (size_prop(E.param(0)) > 0).tree
         ]
     )
     prods.add_func_production(name="noop", lhs=type_ns.State, rhs=[type_ns.State])
@@ -74,6 +66,7 @@ def build_datastore_v1_spec(input_types: List[str], output_type: str):
                                       getattr(type_ns, output_type))
 
     preds = spec.spec.PredicateSpec()
+    preds.add_predicate("occurs", ["const_init", 100])
     return spec.spec.TyrellSpec(tys, prog_spec, prod_spec=prods, pred_spec=preds)
 
 
@@ -103,7 +96,8 @@ class DatastoreV1Interpreter(PostOrderInterpreter):
         return args[0]
 
     def eval_store_file(self, node, args):
-        return State(status=StoreStatus.SUCCESS, store={**args[2].store, args[0]: args[1]})
+        return State(status=StoreStatus.SUCCESS,
+                     store={**args[2].store, args[0]: args[1]})
 
     def eval_noop(self, node, args):
         return args[0]
