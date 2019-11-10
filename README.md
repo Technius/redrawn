@@ -14,7 +14,13 @@ For Windows:
 source venv/Scripts/activate
 ```
 
+Clone the modified version of Tyrell (outside of this directory):
 ```bash
-pip install git+https://github.com/fredfeng/Trinity.git@de512cb921afbdab36cd1e2c8e393dba142fe6d3
+git clone https://github.ucsb.edu/bryantan/Tyrell.git
+pip install -e Tyrell
+```
+
+Go back into this directory and install other dependencies:
+```bash
 pip install -r requirements.txt
 ```
