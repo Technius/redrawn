@@ -21,7 +21,7 @@ def parse_args(args: List[str]) -> argparse.Namespace:
 def main(args_: List[str]):
     args = parse_args(args_)
     interpreter = DS.DatastoreV1Interpreter()
-    spec = DS.build_datastore_v1_spec(["String", "String"], "State")
+    spec = DS.build_datastore_v1_spec(["Key", "Value"], "State")
     builder = tyrell.dsl.Builder(spec)
     with args.synth_file as f:
         lines = []
