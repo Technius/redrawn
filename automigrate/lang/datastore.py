@@ -31,10 +31,11 @@ def build_datastore_v1_spec(input_types: List[str], output_type: str):
     type_ns = types.SimpleNamespace(**{
         "KeyConst": spec.type.EnumType("KeyConst", keys),
         "ValueConst": spec.type.EnumType("ValueConst", data),
+        "StatusConst": spec.type.EnumType("StatusConst", [s.name for s in StoreStatus]),
         "InitState": spec.type.EnumType("InitState", ["init"]),
         "Key": spec.type.ValueType("Key"),
         "Value": spec.type.ValueType("Value"),
-        "Status": spec.type.ValueType("Status"),
+        "Status": spec.type.ValueType("Status", [("raw_status", [], spec.expr.ExprType.INT)]),
         "State": spec.type.ValueType("State", state_props),
         # See source file for tyrell.enumerator.smt.SmtEnumerator
         # Note that NO type can contain "Empty" or else SMT enumerator fails
@@ -56,29 +57,41 @@ def build_datastore_v1_spec(input_types: List[str], output_type: str):
         name="store_file",
         lhs=type_ns.State, rhs=[type_ns.Key, type_ns.Value, type_ns.State],
         constraints=[
-            E.property("contains_key", E.ExprType.BOOL, E.param(3), E.param(1)).implies(
-                E.param(0) == E.param(3)).tree,
-            (E.property("contains_key", E.ExprType.BOOL, E.param(3), E.param(1)).not_()).implies(
+            E.ite(
+                E.property("contains_key", E.ExprType.BOOL, E.param(3), E.param(1)),
+                E.param(0) == E.param(3),
                 E.and_(
                     size_prop(E.param(0)) == size_prop(E.param(3)) + 1,
                     E.property("contains_key", E.ExprType.BOOL, E.param(0), E.param(1)),
-                )
+                ),
             ).tree,
         ]
     )
+    prods.add_func_production(name="const_status", lhs=type_ns.Status, rhs=[type_ns.StatusConst])
     prods.add_func_production(name="delete_file",
         lhs=type_ns.State, rhs=[type_ns.Key, type_ns.State],
         constraints=[
-            (E.property("contains_key", E.ExprType.BOOL, E.param(2), E.param(1)).not_()).implies(
-                E.param(0) == E.param(2)).tree,
-            E.property("contains_key", E.ExprType.BOOL, E.param(2), E.param(1)).implies(
+            E.ite(
+                E.property("contains_key", E.ExprType.BOOL, E.param(2), E.param(1)),
                 E.and_(
                     size_prop(E.param(2)) == size_prop(E.param(0)) + 1,
                     E.property("contains_key", E.ExprType.BOOL, E.param(0), E.param(1)).not_(),
-                )
+                ),
+                E.param(0) == E.param(2),
             ).tree,
-            (size_prop(E.param(0)) >= 0).tree,
         ]
+    )
+    prods.add_func_production(
+        name="ite_status",
+        lhs=type_ns.Status, rhs=[type_ns.Status, type_ns.State, type_ns.State, type_ns.State],
+        constraints=[
+            E.ite(
+                (E.property("status", E.ExprType.INT, E.param(4)) ==
+                 E.property("raw_status", E.ExprType.INT, E.param(1))),
+                E.param(0) == E.param(2),
+                E.param(0) == E.param(3),
+            ).tree,
+        ],
     )
     prods.add_func_production(name="noop", lhs=type_ns.State, rhs=[type_ns.State],
                               constraints=[(E.param(0) == E.param(1)).tree])
@@ -98,6 +111,9 @@ class DatastoreV1Interpreter(PostOrderInterpreter):
 
     def eval_ValueConst(self, val: str):
         return val
+
+    def eval_StatusConst(self, val: str):
+        return StoreStatus[val]
 
     def eval_InitState(self, _: str):
         return State(status=StoreStatus.SUCCESS, store={})
@@ -130,11 +146,18 @@ class DatastoreV1Interpreter(PostOrderInterpreter):
             status = StoreStatus.NOT_EXISTS
         return State(status=status, store=nstore)
 
+    def eval_ite_status(self, node, args):
+        status = args[0]
+        return args[1] if args[3].status == status else args[2]
+
     def eval_noop(self, node, args):
         return args[0]
 
     def apply_status(self, state: State) -> int:
         return int(state.status)
+
+    def apply_raw_status(self, status: StoreStatus) -> int:
+        return int(status)
 
     def apply_size(self, state: State) -> int:
         return len(state.store)

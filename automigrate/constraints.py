@@ -81,3 +81,11 @@ class ExprDsl(object):
     @staticmethod
     def param(index: int) -> 'ExprDsl':
         return ExprDsl(E.ParamExpr(index))
+
+    @staticmethod
+    def ite(cond, then_expr, else_expr) -> 'ExprDsl':
+        return ExprDsl(E.CondExpr(
+            ExprDsl._convert_arg(cond),
+            ExprDsl._convert_arg(then_expr),
+            ExprDsl._convert_arg(else_expr),
+        ))
