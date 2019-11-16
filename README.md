@@ -1,0 +1,5 @@
+# Setup
+
+```bash
+raco setup
+```

@@ -1,0 +1,2 @@
+store "abc def" (2 + 2);
+store "hi" 3;
