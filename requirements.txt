@@ -1,5 +1,0 @@
-Click==7.0
-colorama==0.4.1
-sexpdata==0.0.3
-tyrell==0.1.dev0
-z3-solver==4.8.6.0
