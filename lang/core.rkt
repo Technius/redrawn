@@ -3,8 +3,9 @@
 (require racket/function)
 (require redex)
 (require scribble/srcdoc)
+(require (prefix-in rosette: rosette))
 
-(provide Core CoreE red)
+(provide Core CoreE red bs)
 
 ;; Core expression language
 (define-language
@@ -13,11 +14,12 @@
         number
         string
         boolean
+        any
         (void)
         (let x expr)
         (binop expr expr ...)
         (block expr ...)
-        (ife expr (expr ...) (expr ...)))
+        (ife expr expr expr))
   (binop + and or eq?)
   (x variable-not-otherwise-mentioned))
 
@@ -28,11 +30,11 @@
   (Ee hole
       (block Ee expr ...)
       (binop v ... Ee expr ...)
-      (ife Ee (expr ...) (expr ...))
+      (ife Ee expr expr)
       (let x Ee))
   (vars ((x v) ...)) ;; variables
   (ctx (void)) ;; language-specific context
-  (v number string boolean (void)))
+  (v number string boolean (void) (symbolic any)))
 
 (define-metafunction
   CoreE
@@ -45,6 +47,26 @@
   load-var : vars x -> v
   [(load-var ((x_1 v_1) ... (x v) (x_2 v_2) ...) x) v]
   [(load-var any_1 any_2) ,(error 'load-var "not found: ~e" (term x))])
+
+(define-judgment-form CoreE
+  #:mode (bs I O)
+  #:contract (bs (expr ctx vars) (v ctx vars))
+  [----------- "E-val"
+   (bs (v ctx vars) (v ctx vars))]
+
+  [----------- "E-var"
+   (bs (x ctx vars) ((load-var vars x) ctx vars))]
+
+  [(bs (expr_1 ctx_1 vars_1) (v_1 ctx_2 vars_2))
+   (bs (expr_2 ctx_2 vars_2) (v_2 ctx_3 vars_3))
+   ----------- "E-plus"
+   (bs ((+ expr_1 expr_2) ctx_1 vars_1) (,(+ (term v_1) (term v_2)) ctx_3 vars_3))]
+  )
+
+(module+ test
+  (test-judgment-holds (bs (x (void) ((x 10))) (10 (void) ((x 10)))))
+  (test-judgment-holds (bs ((+ 10 20) (void) ()) (30 (void) ())))
+  )
 
 ;; Core expression small-step operational semantics
 (define red
@@ -73,11 +95,11 @@
         [(in-hole Ee v) ctx (extend-vars vars x v)]
         "let")
    ; If expressions
-   (--> [(in-hole Ee (ife #t (expr_t ...) (expr_f ...))) ctx vars]
-        [(in-hole Ee (block expr_t ...)) ctx vars]
+   (--> [(in-hole Ee (ife #t expr_t expr_f)) ctx vars]
+        [(in-hole Ee expr_t) ctx vars]
         "if_t")
-   (--> [(in-hole Ee (ife #f (expr_t ...) (expr_f ...))) ctx vars]
-        [(in-hole Ee (block expr_f ...)) ctx vars]
+   (--> [(in-hole Ee (ife #f expr_t expr_f)) ctx vars]
+        [(in-hole Ee expr_f) ctx vars]
         "if_f")
    ; Blocks
    (--> [(in-hole Ee (block v)) ctx vars]
@@ -115,12 +137,12 @@
             (term ((eq? 1 1) (void) ()))
             (term (#t (void) ())))
   (test-->> red
-            (term ((ife #t (1) (0)) (void) ()))
+            (term ((ife #t 1 0) (void) ()))
             (term (1 (void) ())))
   (test-->> red
-            (term ((ife #f (1) (0)) (void) ()))
+            (term ((ife #f 1 0) (void) ()))
             (term (0 (void) ())))
   (test-->> red
-            (term ((ife (eq? x y) (x) ((+ x y))) (void) ,my-vars))
+            (term ((ife (eq? x y) x (+ x y)) (void) ,my-vars))
             (term (30 (void) ,my-vars)))
   (test-equal (term (eval-expr x (void) ,my-vars)) 10))

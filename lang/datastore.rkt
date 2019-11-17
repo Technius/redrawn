@@ -2,7 +2,7 @@
 
 (require redex)
 (require (prefix-in core: "core.rkt"))
-(provide Datastore red)
+(provide Datastore red ds-bs)
 
 (define-extended-language
   Datastore
@@ -28,6 +28,13 @@
 ;   core:eval-expr
 ;   Datastore
 ;   eval-expr : expr ctx vars -> v or stuck)
+
+(define-extended-judgment-form
+  Datastore
+  core:bs
+  #:mode (ds-bs I O)
+  #:contract (ds-bs (expr ctx vars) (v ctx vars))
+  )
 
 (define red
   (extend-reduction-relation
