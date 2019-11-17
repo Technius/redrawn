@@ -2,6 +2,7 @@
 
 (require redex)
 (require (prefix-in core: "core.rkt"))
+(provide Datastore red)
 
 (define-extended-language
   Datastore
