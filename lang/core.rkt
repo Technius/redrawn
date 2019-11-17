@@ -1,8 +1,19 @@
 #lang rosette
 
-(provide binop? eval-expr run-program)
+(provide binop? get-op eval-expr run-program)
+(require racket/function)
 
-(define (binop? op) #f)
+(define (ops/or vals) (ormap identity vals))
+(define (ops/and vals) (andmap identity vals))
+(define ops
+  '((+ +)
+    (- -)
+    (&& ops/or)
+    (|| ops/and)
+    (== equals?)))
+
+(define (get-op op) (assoc op ops))
+(define (binop? op) (not (eq? (get-op op) #f)))
 
 (define (eval-expr/fold exprs ctx vars)
   (for/fold ([vals '()] [c ctx] [v vars])
@@ -18,9 +29,11 @@
   [(`(let ,(? symbol? x) ,expr) _ _)
    (match-let ([(list val nctx nvars) (eval-expr expr ctx vars)])
      `(,val ,nctx ((x ,val) ,@nvars)))]
-  [(`(+ ,e ...) _ _)
-   (let-values ([(vals nctx nvars) (eval-expr/fold e ctx vars)])
-     `(,(apply + vals) ,nctx ,nvars))]
+  [(`(,(? binop? op) ,e ...) _ _)
+   (let-values
+       ([(vals nctx nvars) (eval-expr/fold e ctx vars)]
+        [(opf) (eval (cadr (get-op op)))])
+     `(,(apply opf vals) ,nctx ,nvars))]
   [(`(block) _ _) `((void) ,ctx ,vars)]
   [(`(block ,e) _ _) (eval-expr e ctx vars)]
   [(`(block ,e ,en ...) _ _)
