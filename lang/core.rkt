@@ -13,8 +13,11 @@
         number
         string
         boolean
+        (void)
+        (let x expr)
         (binop expr expr ...)
-        (ife expr expr expr))
+        (block expr ...)
+        (ife expr (expr ...) (expr ...)))
   (binop + and or eq?)
   (x variable-not-otherwise-mentioned))
 
@@ -23,15 +26,18 @@
   CoreE
   Core
   (Ee hole
+      (block Ee expr ...)
       (binop v ... Ee expr ...)
-      (ife Ee expr expr))
+      (ife Ee (expr ...) (expr ...))
+      (let x Ee))
   (vars ((x v) ...)) ;; variables
-  (v number string boolean))
+  (v number string boolean (void)))
 
 (define-metafunction
   CoreE
-  extend-vars : (vars x v) -> vars
-  [(extend-vars vars x v) (cons (x  v) vars)])
+  extend-vars : vars x v -> vars
+  [(extend-vars ((x_1 v_1) ... (x v_e) (x_2 v_2) ...) x v) ((x_1 v_1) ... (x v) (x_2 v_2) ...)]
+  [(extend-vars vars x v) ,(cons (term (x  v)) (term vars))])
 
 (define-metafunction
   CoreE
@@ -39,28 +45,42 @@
   [(load-var ((x_1 v_1) ... (x v) (x_2 v_2) ...) x) v]
   [(load-var any_1 any_2) ,(error 'load-var "not found: ~e" (term x))])
 
-;; Core language small-step operational semantics
+;; Core expression small-step operational semantics
 (define red
   (reduction-relation
    CoreE
    #:domain (expr vars)
    ; Variable loads
    (--> [(in-hole Ee x) vars]
-        [(in-hole Ee (load-var vars x)) vars])
+        [(in-hole Ee (load-var vars x)) vars]
+        "var")
    ; Binary operations
    (--> [(in-hole Ee (+ number ...)) vars]
-        [(in-hole Ee ,(apply + (term (number ...)))) vars])
+        [(in-hole Ee ,(apply + (term (number ...)))) vars]
+        "+")
    (--> [(in-hole Ee (or boolean ...)) vars]
-        [(in-hole Ee ,(ormap identity (term (boolean ...)))) vars])
+        [(in-hole Ee ,(ormap identity (term (boolean ...)))) vars]
+        "or")
    (--> [(in-hole Ee (and boolean ...)) vars]
-        [(in-hole Ee ,(andmap identity (term (boolean ...)))) vars])
+        [(in-hole Ee ,(andmap identity (term (boolean ...)))) vars]
+        "and")
    (--> [(in-hole Ee (eq? v_1 v_2)) vars]
-        [(in-hole Ee ,(apply eq? (term (v_1 v_2)))) vars])
+        [(in-hole Ee ,(apply eq? (term (v_1 v_2)))) vars]
+        "eq")
    ; If expressions
-   (--> [(in-hole Ee (ife #t expr_1 expr_2)) vars]
-        [(in-hole Ee expr_1) vars])
-   (--> [(in-hole Ee (ife #f expr_1 expr_2)) vars]
-        [(in-hole Ee expr_2) vars])
+   (--> [(in-hole Ee (ife #t (expr_t ...) (expr_f ...))) vars]
+        [(in-hole Ee (block expr_t ...)) vars]
+        "if_t")
+   (--> [(in-hole Ee (ife #f (expr_t ...) (expr_f ...))) vars]
+        [(in-hole Ee (block expr_f ...)) vars]
+        "if_f")
+   ; Blocks
+   (--> [(in-hole Ee (block v)) vars]
+        [(in-hole Ee v) vars]
+        "block_v")
+   (--> [(in-hole Ee (block v expr expr_n ...)) vars]
+        [(in-hole Ee (block expr expr_n ...)) vars]
+        "block_n")
    ))
 
 (define-metafunction
@@ -90,12 +110,12 @@
             (term ((eq? 1 1) ()))
             (term (#t ())))
   (test-->> red
-            (term ((ife #t 1 0) ()))
+            (term ((ife #t (1) (0)) ()))
             (term (1 ())))
   (test-->> red
-            (term ((ife #f 1 0) ()))
+            (term ((ife #f (1) (0)) ()))
             (term (0 ())))
   (test-->> red
-            (term ((ife (eq? x y) x (+ x y)) ,my-vars))
+            (term ((ife (eq? x y) (x) ((+ x y))) ,my-vars))
             (term (30 ,my-vars)))
   (test-equal (term (eval-expr x ,my-vars)) 10))
