@@ -25,8 +25,7 @@
     [_ (f expr ctx vars)]))
 
 (define (datastore-eval f expr ctx vars)
-  (define (cf expr ctx vars) (core-eval f expr ctx vars))
-  (datastore-eval/rules cf expr ctx vars))
+  ((compose-interpreter datastore-eval/rules core-eval) f expr ctx vars))
 
 (module+ test
   (require rackunit)
