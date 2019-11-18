@@ -10,7 +10,7 @@
     (- -)
     (&& ops/and)
     (|| ops/or)
-    (== equals?)))
+    (== equal?)))
 (define-namespace-anchor ops-anchor)
 (define (get-op op)
   (let ([ns (namespace-anchor->namespace ops-anchor)])
@@ -21,11 +21,10 @@
 (define (binop? op) (not (eq? (get-op op) #f)))
 
 (define (core-eval/fold f exprs ctx vars)
-  (for/fold ([vals '()] [c ctx] [v vars])
+  (for/fold ([vals '()] [c ctx] [v vars] #:result `(,(reverse vals) ,c ,v))
             ([e exprs])
-    (match-let ([`(,valn ,cn ,vn) (f e c v)])
+    (match-let ([(list valn cn vn) (f e c v)])
       (values (cons valn vals) cn vn))))
-
 ; Interpreter for core language terms.
 (define (core-eval f expr ctx vars)
   (match expr
@@ -37,9 +36,9 @@
      (match-let ([(list val nctx nvars) (f expr ctx vars)])
        `(,val ,nctx ((x ,val) ,@nvars)))]
     [`(,(? binop? op) ,e ...)
-     (let-values
-         ([(vals nctx nvars) (core-eval/fold f e ctx vars)]
-          [(opf) (get-op op)])
+     (match-let
+         ([(list vals nctx nvars) (core-eval/fold f e ctx vars)]
+          [opf (get-op op)])
        `(,(apply opf vals) ,nctx ,nvars))]
     [`(block) `((void) ,ctx ,vars)]
     [`(block ,e) (f e ctx vars)]
@@ -70,6 +69,7 @@
   (define (run prog) (run-program core-eval prog))
   (check-equal? (run 10) 10)
   (check-equal? (run '(+ 10 20 30)) 60)
+  (check-equal? (run '(- 50 10)) 40)
   (check-equal? (run '(block 10 20)) 20)
   (check-equal? (run '(if (|| #t #f) 10 20)) 10)
   (check-equal? (run '(if (|| #f #f) 10 20)) 20)

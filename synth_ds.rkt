@@ -12,11 +12,11 @@
 (go)
 
 ; Example program synthesis
-(define (prog i) `(- ,[choose i 0] ,i))
+(define (prog i) `(if (== (- ,[choose i 0] ,i) 0) 10 20))
 
 (define sy
   (synthesize
    #:forall (list i)
    #:guarantee
-   (assert (equal? 0 (run-program core-eval (prog i))))))
+   (assert (equal? 10 (run-program core-eval (prog i))))))
 (print-forms sy)
