@@ -20,6 +20,8 @@
      (match (assoc key ctx)
        [(cons key v) `(,v ,ctx ,vars)]
        [#f `((void) ,ctx ,vars)])]
+    [`(contains ,key)
+     `(,(not (eq? (assoc key ctx) #f)) ,ctx ,vars)]
     [_ (f expr ctx vars)]))
 
 (define (datastore-eval f expr ctx vars)
@@ -29,6 +31,9 @@
 (module+ test
   (require rackunit)
   (define (run prog) (run-program datastore-eval prog))
+  (check-equal? (run '(block (store 1 10)
+                             (contains 1)))
+                #t)
   (check-equal? (run '(block (store 1 10)
                              (get 1)))
                 10)
