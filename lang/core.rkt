@@ -26,8 +26,7 @@
     (match-let ([`(,valn ,cn ,vn) (f e c v)])
       (values (cons valn vals) cn vn))))
 
-; Fixed point evaluation.
-; This is extensible
+; Interpreter for core language terms.
 (define (core-eval f expr ctx vars)
   (match expr
     [(? number? lit) `(,lit ,ctx ,vars)]
@@ -50,8 +49,16 @@
     [`(if ,guard ,texpr ,fexpr)
      (match-let ([(list guardv nctx nvars) (f guard ctx vars)])
        (f (if guardv texpr fexpr) nctx nvars))]
-    [_ 'stuck]))
+    [_ (error 'evaluation "stuck on ~e" expr)]))
 
+; Runs the given program with the given interpreter. An interpreter has the form
+;     interpreter : (expr ctx vars -> expr) expr ctx vars -> expr
+; i.e. an interpreter is a function that will evaluate the next step and then
+; pass the result to the given continuation. By setting the continuation to the
+; interpreter itself (i.e. a fixed point of the interpreter), we can evaluate
+; arbitrary terms.
+;
+; Two interpreters can be composed to get another interpreter.
 (define (run-program interpreter prog)
   (define (eval-fun expr ctx vars)
     (interpreter eval-fun expr ctx vars))
@@ -66,4 +73,5 @@
   (check-equal? (run '(block 10 20)) 20)
   (check-equal? (run '(if (|| #t #f) 10 20)) 10)
   (check-equal? (run '(if (|| #f #f) 10 20)) 20)
+  (check-equal? (run '(block (let x 10) (+ x 10))) 20)
   )
