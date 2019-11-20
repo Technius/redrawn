@@ -31,10 +31,12 @@
     [(? number? lit) `(,lit ,ctx ,vars)]
     [(? boolean? lit) `(,lit ,ctx ,vars)]
     [(? symbol? x)
-     `(,(cadr (assoc x vars)) ,ctx ,vars)]
+     (define result (assoc x vars))
+     (assert (not (equal? #f result)) (format "variable not defined: ~a" x))
+     `(,(cadr result) ,ctx ,vars)]
     [`(let ,(? symbol? x) ,expr)
      (match-let ([(list val nctx nvars) (f expr ctx vars)])
-       `(,val ,nctx ((x ,val) ,@nvars)))]
+       `(,val ,nctx ((,x ,val) ,@nvars)))]
     [`(,(? binop? op) ,e ...)
      (match-let
          ([(list vals nctx nvars) (core-eval/fold f e ctx vars)]
@@ -80,4 +82,6 @@
   (check-equal? (run '(if (|| #t #f) 10 20)) 10)
   (check-equal? (run '(if (|| #f #f) 10 20)) 20)
   (check-equal? (run '(block (let x 10) (+ x 10))) 20)
+  (check-equal? (run '(block (if #t (let y 10) (let y 20)) y)) 10)
+  (check-equal? (run '(block (if #f (let y 10) (let y 20)) y)) 20)
   )

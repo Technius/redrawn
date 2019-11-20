@@ -6,6 +6,7 @@
 (define-symbolic i integer?)
 
 (require "lang/core.rkt")
+(require "lang/datastore.rkt")
 
 (define (go)
   (solve (assert (= 10 (run-program core-eval `(block (let x ,i) (+ x 10)))))))
@@ -20,3 +21,9 @@
    #:guarantee
    (assert (equal? 10 (run-program core-eval (prog i))))))
 (print-forms sy)
+
+(define dprog
+  `(block (if ,b (let x ,i) (let x #f))
+          (if ,b (+ x 5) #t)))
+
+(run-program datastore-eval dprog)

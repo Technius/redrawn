@@ -2,7 +2,7 @@
 
 (require "core.rkt")
 
-(provide datastore-eval datastore-eval/rules)
+(provide datastore-eval datastore-eval/rules datastore-eval-v2 datastore-eval/rules-v2)
 
 (define (store-contains store key)
   (not (eq? (assoc key store) #f)))
@@ -30,7 +30,7 @@
   (match expr
     [`(store ,key ,val)
      (if (store-contains ctx key)
-         (error 'datastore "Already contains such datastore key: ~e" key)
+         (error 'datastore "Already contains datastore key: ~e" key)
          `((void) ,(store-put (store-del ctx key) key val) ,vars))]
     [`(del ,key)
      (if (store-contains ctx key)
