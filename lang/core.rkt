@@ -85,3 +85,15 @@
   (check-equal? (run '(block (if #t (let y 10) (let y 20)) y)) 10)
   (check-equal? (run '(block (if #f (let y 10) (let y 20)) y)) 20)
   )
+
+; Numbers symbols in an expr AST, returning a tree containing the corresponding
+; ids
+(define (number-nodes expr)
+  (define (go e cur-id)
+    (if (list? e)
+        (for/fold ([id cur-id] [node '()] #:result (values (reverse node) id))
+                  ([en e])
+          (let-values ([(nchild nid) (go en id)])
+            (values nid (cons nchild node))))
+        (values cur-id (+ cur-id 1))))
+  (call-with-values (lambda () (go expr 0)) (lambda (n i) n)))
