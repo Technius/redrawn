@@ -1,11 +1,27 @@
 #lang racket
 
-(require "datastore/syntax.rkt")
+(require racket/cmdline)
+(require racket/pretty)
+(require "lang/datastore.rkt")
+(require "compiler.rkt")
 
-(define program (syntax->datum (ast-from-file "./examples/datastore/prog1.txt")))
-(display "Program: ")
-(display program)
-(newline)
-(display "Output: ")
-(display (eval-program (cdr program) #hash()))
-(newline)
+(define source-file-path
+  (command-line
+   #:args (path)
+   path))
+
+(define program
+  (read (open-input-file source-file-path #:mode 'text)))
+
+(displayln "Datastore V1:")
+(pretty-print program)
+
+; TODO: generate sketch and then synthesize
+(define translator
+  (compose-translate translate-ds-v1-v2 translate-core))
+
+(displayln "Translate...")
+(define program-v2 (run-translate translator program))
+
+(displayln "Datastore V2:")
+(pretty-print program-v2)

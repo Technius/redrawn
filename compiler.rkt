@@ -1,5 +1,7 @@
 #lang racket
 
+(provide translate-core translate-ds-v1-v2 compose-translate run-translate)
+
 (require (only-in rosette/lib/synthax ?? choose))
 (require "lang/core.rkt")
 (require "lang/datastore.rkt")
