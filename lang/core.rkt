@@ -1,6 +1,9 @@
 #lang rosette
 
-(provide binop? get-op core-eval core-eval/fold run-program compose-interpreter)
+(provide binop? get-op
+         rosette-eval core-eval core-eval/fold
+         compose-interpreter compose-interpreter*
+         run-program)
 (require racket/function)
 
 (define (ops/or . vals) (ormap identity vals))
@@ -52,11 +55,27 @@
        (f (if guardv texpr fexpr) nctx nvars))]
     [_ (error 'evaluation "stuck on ~e" expr)]))
 
+; Handler for Rosette terms
+(define (rosette-eval f expr ctx vars)
+  (match expr
+    [(? term? lit) `(,lit ,ctx ,vars)]
+    [(? union? su) (for/all ([se su]) (f se ctx vars))]
+    [`(,(? union? su) ,e ...)
+     (for/all ([se su])
+       (f `(,se ,@e) ctx vars))]
+    [_ (f expr ctx vars)]))
+
 ; Compose interpreters from right to left (i.e. i1 is executed before i2)
 (define (compose-interpreter i1 i2)
   (lambda (f expr ctx vars)
     (define (cf e c v) (i2 f e c v))
     (i1 cf expr ctx vars)))
+
+; compose-interpreter but for multiple interpreters
+(define (compose-interpreter* . is)
+  (for/fold ([interp (car is)])
+            ([i (cdr is)])
+    (compose-interpreter interp i)))
 
 ; Runs the given program with the given interpreter. An interpreter has the form
 ;     interpreter : (expr ctx vars -> expr) expr ctx vars -> expr
