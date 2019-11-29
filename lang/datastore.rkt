@@ -15,30 +15,41 @@
 
 (define (datastore-eval/rules f expr ctx vars)
   (match expr
-    [`(store ,key ,val)
-     `((void) ,(store-put (store-del ctx key) key val) ,vars)]
-    [`(del ,key)
-     `((void) ,(store-del ctx key) ,vars)]
-    [`(get ,key)
-     (match (assoc key ctx)
-       [(cons key v) `(,v ,ctx ,vars)]
-       [#f `((void) ,ctx ,vars)])]
-    [`(contains ,key) `(,(store-contains ctx key) ,ctx ,vars)]
+    [`(store ,e1 ,e2)
+     (match-define (list (list key val) nctx nvars)
+       (core-eval/fold f (list e1 e2) ctx vars))
+     `((void) ,(store-put (store-del nctx key) key val) ,nvars)]
+    [`(del ,e)
+     (match-define (list key nctx nvars) (f e ctx vars))
+     `((void) ,(store-del nctx key) ,nvars)]
+    [`(get ,e)
+     (match-define (list key nctx nvars) (f e ctx vars))
+     (for/all ([result (assoc key nctx)])
+       (match result
+         [(cons key v) `(,v ,nctx ,nvars)]
+         [#f `((void) ,nctx ,nvars)]))]
+    [`(contains ,e)
+     (match-define (list key nctx nvars) (f e ctx vars))
+     `(,(store-contains nctx key) ,nctx ,nvars)]
     [_ (f expr ctx vars)]))
 
 (define (datastore-eval/rules-v2 f expr ctx vars)
   (match expr
-    [`(store ,key ,val)
-     (if (store-contains ctx key)
+    [`(store ,e1 ,e2)
+     (match-define (list (list key val) nctx nvars)
+       (core-eval/fold f (list e1 e2) ctx vars))
+     (if (store-contains nctx key)
          (error 'datastore "Already contains datastore key: ~e" key)
-         `((void) ,(store-put (store-del ctx key) key val) ,vars))]
-    [`(del ,key)
-     (if (store-contains ctx key)
-         `((void) ,(store-del ctx key) ,vars)
+         `((void) ,(store-put (store-del nctx key) key val) ,nvars))]
+    [`(del ,e)
+     (match-define (list key nctx nvars) (f e ctx vars))
+     (if (store-contains nctx key)
+         `((void) ,(store-del nctx key) ,nvars)
          (error 'datastore "No such datastore key: ~e" key))]
-    [`(get ,key)
-     (match (assoc key ctx)
-       [(cons key v) `(,v ,ctx ,vars)]
+    [`(get ,e)
+     (match-define (list key nctx nvars) (f e ctx vars))
+     (match (assoc key nctx)
+       [(cons key v) `(,v ,nctx ,nvars)]
        [#f (error 'datastore "No such datastore key: ~e" key)])]
     [_ (f expr ctx vars)]))
 
@@ -68,6 +79,14 @@
                               (store 1 20)
                               (get 1)))
                 20)
+  (check-equal? (run '(block (store 2 0) (get (+ 1 1))))
+                0)
+  (check-equal? (run '(block (store 2 0) (contains (+ 1 1))))
+                #t)
+  (check-equal? (run '(block (store (+ 1 1) (+ 2 3)) (get 2)))
+                5)
+  (check-equal? (run '(block (store (+ 1 1) 0) (del 2) (contains (- 3 1))))
+                #f)
   (check-exn exn:fail? (lambda () (run2 '(block (store 1 10)
                                                 (store 1 10)))))
   (check-exn exn:fail? (lambda () (run2 '(get 1)))))
