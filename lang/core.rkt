@@ -28,8 +28,13 @@
             ([e exprs])
     (match-let ([(list valn cn vn) (f e c v)])
       (values (cons valn vals) cn vn))))
+
+; Stuck
+(define (stuck f expr ctx vars)
+  (error 'evaluation "stuck on ~e" expr))
+
 ; Interpreter for core language terms.
-(define (core-eval f expr ctx vars)
+(define (core-eval cont f expr ctx vars)
   (match expr
     [(? number? lit) `(,lit ,ctx ,vars)]
     [(? boolean? lit) `(,lit ,ctx ,vars)]
@@ -53,23 +58,29 @@
     [`(if ,guard ,texpr ,fexpr)
      (match-let ([(list guardv nctx nvars) (f guard ctx vars)])
        (f (if guardv texpr fexpr) nctx nvars))]
-    [_ (error 'evaluation "stuck on ~e" expr)]))
+    [_ (cont f expr ctx vars)]))
 
 ; Handler for Rosette terms
-(define (rosette-eval f expr ctx vars)
+(define (rosette-eval cont f expr ctx vars)
   (match expr
     [(? term? lit) `(,lit ,ctx ,vars)]
-    [(? union? su) (for/all ([se su]) (f se ctx vars))]
-    [`(,(? union? su) ,e ...)
+    [(? union? su)
+;     (println "In union (1)")
      (for/all ([se su])
+       ;       (begin (printf "Union(1): ~A\n" se) (f se ctx vars)))]
+       (f se ctx vars))]
+    [`(,(? union? su) ,e ...)
+;     (println "In union (2)")
+     (for/all ([se su])
+;       (begin (printf "Union(2): ~A\n" se) (f `(,se ,@e) ctx vars)))]
        (f `(,se ,@e) ctx vars))]
-    [_ (f expr ctx vars)]))
+    [_ (cont f expr ctx vars)]))
 
 ; Compose interpreters from right to left (i.e. i1 is executed before i2)
 (define (compose-interpreter i1 i2)
-  (lambda (f expr ctx vars)
-    (define (cf e c v) (i2 f e c v))
-    (i1 cf expr ctx vars)))
+  (lambda (cont f expr ctx vars)
+    (define (cf f e c v) (i2 cont f e c v))
+    (i1 cf f expr ctx vars)))
 
 ; compose-interpreter but for multiple interpreters
 (define (compose-interpreter* . is)
@@ -87,7 +98,8 @@
 ; Two interpreters can be composed to get another interpreter.
 (define (run-program interpreter prog)
   (define (eval-fun expr ctx vars)
-    (interpreter eval-fun expr ctx vars))
+;    (printf "Step: ~A\n" expr)
+    (interpreter stuck eval-fun expr ctx vars))
   (match-let ([(list val ctx vars) (eval-fun prog '() '())])
     val))
 

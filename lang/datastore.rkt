@@ -13,7 +13,7 @@
 (define (store-put store key val)
   (cons (cons key val) store))
 
-(define (datastore-eval/rules f expr ctx vars)
+(define (datastore-eval/rules cont f expr ctx vars)
   (match expr
     [`(store ,e1 ,e2)
      (match-define (list (list key val) nctx nvars)
@@ -31,9 +31,9 @@
     [`(contains ,e)
      (match-define (list key nctx nvars) (f e ctx vars))
      `(,(store-contains nctx key) ,nctx ,nvars)]
-    [_ (f expr ctx vars)]))
+    [_ (cont f expr ctx vars)]))
 
-(define (datastore-eval/rules-v2 f expr ctx vars)
+(define (datastore-eval/rules-v2 cont f expr ctx vars)
   (match expr
     [`(store ,e1 ,e2)
      (match-define (list (list key val) nctx nvars)
@@ -51,13 +51,13 @@
      (match (assoc key nctx)
        [(cons key v) `(,v ,nctx ,nvars)]
        [#f (error 'datastore "No such datastore key: ~e" key)])]
-    [_ (f expr ctx vars)]))
+    [_ (cont f expr ctx vars)]))
 
-(define (datastore-eval f expr ctx vars)
-  ((compose-interpreter datastore-eval/rules core-eval) f expr ctx vars))
+(define (datastore-eval cont f expr ctx vars)
+  ((compose-interpreter datastore-eval/rules core-eval) cont f expr ctx vars))
 
-(define (datastore-eval-v2 f expr ctx vars)
-  ((compose-interpreter datastore-eval/rules-v2 datastore-eval) f expr ctx vars))
+(define (datastore-eval-v2 cont f expr ctx vars)
+  ((compose-interpreter datastore-eval/rules-v2 datastore-eval) cont f expr ctx vars))
 
 (module+ test
   (require rackunit)
