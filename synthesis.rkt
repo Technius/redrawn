@@ -5,6 +5,9 @@
 (require "lang/core.rkt")
 (require "lang/datastore.rkt")
 
+(provide ast??)
+
+; Arbitrary AST node hole
 (define (ast?? terminals max-depth [block-length 0])
   (define (block-hole h)
     (if (> block-length 0)
@@ -67,42 +70,42 @@
   (go max-depth))
 
 
-(define-symbolic i integer?)
+(module+ test
+  (require (prefix-in opt: "optimize.rkt"))
+  (define-symbolic i integer?)
 
-(define (run p)
-  (define interp
-    (compose-interpreter* rosette-eval
-                          datastore-eval/rules
-                          core-eval))
-  (run-program interp p))
+  (define (run p)
+    (define interp
+      (compose-interpreter* rosette-eval
+                            datastore-eval/rules
+                            core-eval))
+    (run-program interp p))
 
-(define p1 `(block (store ,i 5) (get ,i)))
-(define sketch
-  `(block ,(ast?? (list i '(void)) 1)
-          (get ,i)))
+  (define (do-synth output sketch vars)
+    (define sol (synthesize
+                 #:forall vars
+                 #:guarantee (assert (equal? output (run sketch)))))
+    (if (sat? sol)
+        (begin
+          (println "Sat")
+          (define raw (evaluate sketch sol))
+          (displayln (format "Raw: ~a" raw))
+          (opt:optimize raw))
+        (println "Unsat")))
 
-(define sol (synthesize
-             #:forall (list i)
-             #:guarantee (assert (equal? 5 (run sketch)))))
-(when (sat? sol)
-  (println "Sat 1")
-  (evaluate sketch sol))
+  (println "Sketch 1")
+  (define sk1
+    `(block ,(ast?? (list i '(void)) 1)
+            (get ,i)))
+  (do-synth 5 sk1 (list i))
 
-(define-symbolic x integer?)
-(define sk2 `(block ,(ast?? (list x i '(void)) 2)))
+  (define-symbolic x integer?)
 
-(define sol2 (synthesize
-             #:forall (list i x)
-             #:guarantee (assert (equal? (+ x (+ i i)) (run sk2)))))
-(when (sat? sol2)
-  (println "Sat 2")
-  (evaluate sk2 sol2))
+  (println "Sketch 2")
+  (define sk2 `(block ,(ast?? (list x i '(void)) 2)))
+  (do-synth (+ x (+ i i)) sk2 (list i x))
 
-(define sk3 (ast?? (list i x '(void)) 2))
-
-(define sol3 (synthesize
-              #:forall (list i x)
-              #:guarantee (assert (equal? (if (equal? i 2) i x) (run sk3)))))
-(when (sat? sol3)
-  (println "Sat 3")
-  (evaluate sk3 sol3))
+  (println "Sketch 3")
+  (define sk3 (ast?? (list i x '(void)) 2))
+  (do-synth (if (equal? i 2) i x) sk3 (list i x))
+  )
