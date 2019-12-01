@@ -9,18 +9,19 @@
 (define (ops/or . vals) (ormap identity vals))
 (define (ops/and . vals) (andmap identity vals))
 (define ops
-  '((+ +)
-    (- -)
-    (&& ops/and)
-    (|| ops/or)
-    (== equal?)))
+  ; Language symbol, racket function, type
+  '((+ + integer?)
+    (- - integer?)
+    (&& ops/and boolean?)
+    (|| ops/or boolean?)
+    (== equal? (const #t))))
 (define-namespace-anchor ops-anchor)
 (define (get-op op)
   (let ([ns (namespace-anchor->namespace ops-anchor)])
     (parameterize ([current-namespace ns])
       (match (assoc op ops)
         [#f #f]
-        [`(,_ ,f) (eval f ns)]))))
+        [(list _ f ty) (list (eval f ns) (eval ty ns))]))))
 (define (binop? op) (not (eq? (get-op op) #f)))
 
 (define (core-eval/fold f exprs ctx vars)
@@ -46,18 +47,21 @@
      (match-let ([(list val nctx nvars) (f expr ctx vars)])
        `(,val ,nctx ((,x ,val) ,@nvars)))]
     [`(,(? binop? op) ,e ...)
-     (match-let
-         ([(list vals nctx nvars) (core-eval/fold f e ctx vars)]
-          [opf (get-op op)])
-       `(,(apply opf vals) ,nctx ,nvars))]
+     (match-define (list vals nctx nvars) (core-eval/fold f e ctx vars))
+     (match-define (list opf ty) (get-op op))
+     (when (not (for/and ([v vals]) (ty v)))
+       (error 'core "Type error: expected only ~a, got arguments ~e" ty vals))
+     `(,(apply opf vals) ,nctx ,nvars)]
     [`(block) `((void) ,ctx ,vars)]
     [`(block ,e) (f e ctx vars)]
     [`(block ,e ,en ...)
      (match-let ([(list val nctx nvars) (f e ctx vars)])
        (f `(block ,@en) nctx nvars))]
     [`(if ,guard ,texpr ,fexpr)
-     (match-let ([(list guardv nctx nvars) (f guard ctx vars)])
-       (f (if guardv texpr fexpr) nctx nvars))]
+     (match-define (list guardv nctx nvars) (f guard ctx vars))
+     (when (not (boolean? guardv))
+       (error 'core "Type error: expected boolean?, got ~e" guardv))
+     (f (if guardv texpr fexpr) nctx nvars)]
     [_ (cont f expr ctx vars)]))
 
 ; Handler for Rosette terms
