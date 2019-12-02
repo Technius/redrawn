@@ -3,7 +3,7 @@
 (provide binop? get-op
          rosette-eval core-eval core-eval/fold
          compose-interpreter compose-interpreter*
-         run-program)
+         run-program number-nodes)
 (require racket/function)
 
 (define (ops/or . vals) (ormap identity vals))
