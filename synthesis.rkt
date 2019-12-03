@@ -93,9 +93,13 @@
 (define (v1v2trans prog)
     (run-translate (compose-translate translate-ds-v1-v2 translate-core) prog))
 
+(define (v1v2trans/s prog)
+  (run-translate (compose-translate translate-ds-v1-v2/sketching translate-core) prog))
+
 (define (run p)
   (define interp
     (compose-interpreter* rosette-eval
+                          datastore-eval/rules-v2
                           datastore-eval/rules
                           core-eval))
   (run-program interp p))
@@ -107,7 +111,8 @@
   (if (sat? sol)
       (begin
         (displayln "Sat")
-        (define raw (evaluate sketch sol))
+        (define solc (complete-solution sol (symbolics sketch)))
+        (define raw (evaluate sketch solc))
         (displayln (format "Raw: ~a" raw))
         (define opt (opt:optimize raw))
         (displayln (format "Opt: ~a" opt))
@@ -123,10 +128,15 @@
       (displayln "Unsat")))
 
 ;; Demo_1
-(define p1 `(block (store i 5) (get i)))
+(define p1 `(block (store ,i 5) (get ,i)))
 (displayln "'''")
 (println "Original Program 1")
 (displayln p1)
+(display "\n")
+
+(println "Sketching translation 1")
+(define st1 (v1v2trans/s p1))
+(do-synth 5 st1 (list i))
 (display "\n")
 
 (println "Direct translation 1")
@@ -155,6 +165,11 @@
 
 (println "Direct translation 2")
 (displayln (v1v2trans p2))
+(display "\n")
+
+(println "Sketching translation 2")
+(define st2 (v1v2trans/s p2))
+(do-synth '(void) st2 '())
 (display "\n")
 
 (println "Sketch 2")

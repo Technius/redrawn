@@ -1,8 +1,11 @@
 #lang racket
 
-(provide translate-core translate-ds-v1-v2 compose-translate run-translate)
+(provide translate-core
+         translate-ds-v1-v2 translate-ds-v1-v2/sketching
+         compose-translate run-translate)
 
 (require (only-in rosette/lib/synthax ?? choose))
+(require (only-in rosette/lib/angelic choose*))
 (require "lang/core.rkt")
 (require "lang/datastore.rkt")
 
@@ -18,9 +21,33 @@
 ; Translate datastore v1 into datastore v2
 (define (translate-ds-v1-v2 cont f prog)
   (match prog
-    [`(store ,key ,val) `(block (if (contains ,(f key)) (del ,(f key)) (void)) (store ,(f key) ,(f val)))]
+    [`(store ,key ,val)
+     `(block (if (contains ,(f key))
+                 (del ,(f key))
+                 (void))
+             (store ,(f key) ,(f val)))]
     [`(del ,key) `(if (contains ,(f key)) (del ,(f key)) (void))]
     [`(get ,key) `(if (contains ,(f key)) (get ,(f key)) #f)]
+    [_ (cont f prog)]
+    ))
+
+(define (translate-ds-v1-v2/sketching cont f prog)
+  (match prog
+    [`(store ,key ,val)
+     (define k (f key))
+     (define v (f val))
+     (choose*
+      `(block (if (contains ,k)
+                  (del ,k)
+                  (void))
+              (store ,k ,v))
+      `(store ,k ,v))]
+    [`(del ,key)
+     (define k (f key))
+     (choose* `(if (contains ,k) (del ,k) (void)) `(del ,k))]
+    [`(get ,key)
+     (define k (f key))
+     (choose* `(if (contains ,k) (get ,k) #f) `(get ,k))]
     [_ (cont f prog)]
     ))
 
