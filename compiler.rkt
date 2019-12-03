@@ -10,7 +10,7 @@
 (define (translate-core cont f prog)
   (match prog
     [`(let ,(? symbol? x) ,expr) `(let ,x ,(f expr))]
-    [`(,(? binop? op) ,e ...) `(,op ,(f e) ...)]
+    [`(,(? binop? op) ,e ...) `(,op ,@(map f e))]
     [`(block ,e ...) `(block ,@(map f e))]
     [`(if ,guard ,texpr ,fexpr) `(if ,(f guard) ,(f texpr) ,(f fexpr))]
     [_ prog]))
