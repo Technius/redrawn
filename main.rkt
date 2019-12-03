@@ -5,10 +5,30 @@
 (require "lang/datastore.rkt")
 (require "compiler.rkt")
 
+(define init-vars (make-parameter '()))
+
 (define source-file-path
   (command-line
+   #:multi
+   [("-v" "--var") vv
+                    "Define initial variables"
+                    (init-vars (cons vv (init-vars)))]
    #:args (path)
    path))
+
+; Parse initial variables
+(define kv-pairs
+  (map (lambda (s) (string-split s #px":")) (init-vars)))
+(define vars
+  (for/list ([p kv-pairs])
+    (cond
+      [(equal? 2 (length p))
+       (define v (string->symbol (car p)))
+       (list v (cadr p))]
+      [else
+       (printf "Error: invalid variable: ~a\n" p)
+       (exit 1)]
+    )))
 
 (define program
   (read (open-input-file source-file-path #:mode 'text)))

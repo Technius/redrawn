@@ -7,7 +7,7 @@
 (require "lang/datastore.rkt")
 (require "compiler.rkt")
 
-(provide ast??)
+(provide ast?? create-input-vars)
 
 ; Arbitrary AST node hole
 (define (ast?? terminals max-depth [block-length 0])
@@ -73,6 +73,17 @@
           (apply choose* ast-holes))))
   (go max-depth))
 
+(define (create-input-vars vars)
+  (for/list ([p vars])
+    (match p
+      [`(,(? symbol? v) "integer")
+       (define-symbolic* inputi integer?)
+       (list v inputi)]
+      [`(,(? symbol? v) "boolean")
+       (define-symbolic* inputb boolean?)
+       (list v inputb)]
+      [_ p])))
+
 
 (define-symbolic i integer?)
 (define-symbolic x integer?)
@@ -98,7 +109,9 @@
         (displayln "Sat")
         (define raw (evaluate sketch sol))
         (displayln (format "Raw: ~a" raw))
-        (opt:optimize raw))
+        (define opt (opt:optimize raw))
+        (displayln (format "Opt: ~a" opt))
+        opt)
         (displayln "Unsat")))
 
 (define (syn-count-node output sketch vars)
