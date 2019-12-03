@@ -1,9 +1,11 @@
 #lang rosette
 
+(require racket/format)
 (require rosette/lib/synthax)
 (require rosette/lib/angelic)
 (require "lang/core.rkt")
 (require "lang/datastore.rkt")
+(require "compiler.rkt")
 
 (provide ast??)
 
@@ -70,42 +72,226 @@
   (go max-depth))
 
 
-(module+ test
-  (require (prefix-in opt: "optimize.rkt"))
-  (define-symbolic i integer?)
+(define-symbolic i integer?)
+(define-symbolic x integer?)
 
-  (define (run p)
-    (define interp
-      (compose-interpreter* rosette-eval
-                            datastore-eval/rules
-                            core-eval))
-    (run-program interp p))
+(require (prefix-in opt: "optimize.rkt"))
 
-  (define (do-synth output sketch vars)
-    (define sol (synthesize
-                 #:forall vars
-                 #:guarantee (assert (equal? output (run sketch)))))
-    (if (sat? sol)
-        (begin
-          (println "Sat")
-          (define raw (evaluate sketch sol))
-          (displayln (format "Raw: ~a" raw))
-          (opt:optimize raw))
-        (println "Unsat")))
+(define (v1v2trans prog)
+    (run-translate (compose-translate translate-ds-v1-v2 translate-core) prog))
 
-  (println "Sketch 1")
-  (define sk1
-    `(block ,(ast?? (list i '(void)) 1)
-            (get ,i)))
-  (do-synth 5 sk1 (list i))
+(define (run p)
+  (define interp
+    (compose-interpreter* rosette-eval
+                          datastore-eval/rules
+                          core-eval))
+  (run-program interp p))
 
-  (define-symbolic x integer?)
+(define (do-synth output sketch vars)
+  (define sol (synthesize
+                #:forall vars
+                #:guarantee (assert (equal? output (run sketch)))))
+  (if (sat? sol)
+      (begin
+        (displayln "Sat")
+        (define raw (evaluate sketch sol))
+        (displayln (format "Raw: ~a" raw))
+        (opt:optimize raw))
+        (displayln "Unsat")))
 
-  (println "Sketch 2")
-  (define sk2 `(block ,(ast?? (list x i '(void)) 2)))
-  (do-synth (+ x (+ i i)) sk2 (list i x))
+(define (syn-count-node output sketch vars)
+  (define sol (synthesize
+                #:forall vars
+                #:guarantee (assert (equal? output (run sketch)))))
+  (if (sat? sol)
+      (displayln (number-nodes (opt:optimize (evaluate sketch sol))))
+      (displayln "Unsat")))
 
-  (println "Sketch 3")
-  (define sk3 (ast?? (list i x '(void)) 2))
-  (do-synth (if (equal? i 2) i x) sk3 (list i x))
-  )
+;; Demo_1
+(define p1 `(block (store i 5) (get i)))
+(displayln "'''")
+(println "Original Program 1")
+(displayln p1)
+(display "\n")
+
+(println "Direct translation 1")
+(displayln (v1v2trans p1))
+(display "\n")
+
+(println "Sketch 1")
+(define sk1
+  `(block ,(ast?? (list i '(void)) 1)
+          (get ,i)))
+(do-synth 5 sk1 (list i))
+(display "\n")
+
+(println "Summary 1")
+(display "Number of AST nodes in direct translated program - ") (displayln (number-nodes (v1v2trans p1)))
+(display "Number of AST nodes in synthesized program - ") (syn-count-node 5 sk1 (list i))
+(displayln "'''\n")
+
+
+;; Demo_2
+(define p2 `(block (store 0 0) (store 1 1) (del 0) (del 1) (if (contains 0) (get 0) (get 1))))
+(displayln "'''")
+(println "Original Program 2")
+(displayln p2)
+(display "\n")
+
+(println "Direct translation 2")
+(displayln (v1v2trans p2))
+(display "\n")
+
+(println "Sketch 2")
+(define sk2 `(block (store 0 0) 
+              (store 1 1)
+              (del 0)
+              ,(ast?? (list i x) 1)
+              (if (contains 0) (get 0) (get 1))))
+(do-synth '(void) sk2 (list i x))
+(display "\n")
+
+(println "Summary 2")
+(display "Number of AST nodes in direct translated program - ") (displayln (number-nodes (v1v2trans p2)))
+(display "Number of AST nodes in synthesized program - ") (syn-count-node '(void) sk2 (list i x))
+(displayln "'''\n")
+
+
+;; Demo_3
+(define p3
+    (let ([n 0])
+    `(block
+        (store 0 10)
+        (store 1 100)
+        (while (< n 3)
+            (del n)
+            (set! n (+ n 1)))
+        (get 2))))
+(displayln "'''")
+(println "Original Program 3")
+(displayln p3)
+(display "\n")
+
+(println "Direct translation 3")
+(displayln (v1v2trans p3))
+(display "\n")
+
+(println "Sketch 3-1")
+(define sk3 
+    (let ([n 3])
+    `(block
+        ,(ast?? (list i x) 2)
+        (while (< n 0)
+            (del n)
+            (set! n (- n 1)))
+        (get 0))))
+(do-synth 10 sk3 (list i x))
+(display "\n")
+
+(println "Sketch 3-2")
+(define sk3-2 
+    (let ([n 3])
+    `(block
+        ,(ast?? (list i x) 1)
+        (store 1 100)
+        (while (< n 0)
+            (del n)
+            (set! n (- n 1)))
+        (get 0))))
+(do-synth 10 sk3 (list i x))
+(display "\n")
+
+(println "Summary 3")
+(display "Number of AST nodes in direct translated program - ") (displayln (number-nodes (v1v2trans p3)))
+(display "Number of AST nodes in synthesized program - ") (syn-count-node 10 sk3-2 (list i))
+(displayln "'''\n")
+
+
+;; Demo_4
+(define p4 `(block
+              (store 0 0)
+              (store 10 10)
+              (if (contains 0)
+                (store 1 1)
+                (store 2 2))
+              (if (contains 1)
+                (if ((contains 10) || (contains 2))
+                  (del 2)
+                  (del 1))
+                (store 10 10))
+              (get 0)))
+(displayln "'''")
+(println "Original Program 4")
+(displayln p4)
+(display "\n")
+
+(println "Direct translation 4")
+(displayln (v1v2trans p4))
+(display "\n")
+
+(println "Sketch 4-1")
+(define sk4 `(block
+                ,(ast?? (list i x) 1)
+                (store 10 10)
+                (if (contains 0)
+                  (store 1 1)
+                  (store 2 2))
+                (if (contains 1)
+                  (if ((contains 10) || (contains 2))
+                    (del 2)
+                    (del 1))
+                  (store 10 10))
+                (get 0)))
+(do-synth 0 sk4 (list i x))
+(display "\n")
+
+(println "Sketch 4-2")
+;; Program is same as p4, except that the expected output is (get 2)
+;; sk4-2 has two holes
+(define sk4-2 `(block
+                ,(ast?? (list i x) 1)
+                (store 10 10)
+                (if (contains 0)
+                  (store 1 1)
+                  ,(ast?? (list i x) 1))
+                (if (contains 1)
+                  (if ((contains 10) || (contains 2))
+                    (del 2)
+                    (del 1))
+                  (store 10 10))
+                (get 2)))
+(do-synth '(void) sk4-2 (list i x))
+(display "\n")
+
+(println "Summary 4")
+(display "Number of AST nodes in direct translated program - ") (displayln (number-nodes (v1v2trans p4)))
+(display "Number of AST nodes in synthesized program - ") (syn-count-node 0 sk4 (list i x))
+(displayln "'''\n")
+
+#|
+;; Demo_5
+(define p5 `(block))
+
+(displayln "'''")
+(println "Original Program 5")
+(displayln p5)
+(display "\n")
+
+(println "Direct translation 5")
+(displayln (v1v2trans p5))
+(display "\n")
+
+
+
+
+;; tests
+(println "Sketch 2")
+(define sk2 `(block ,(ast?? (list x i '(void)) 2)))
+(do-synth (+ x (+ i i)) sk2 (list i x))
+(displayln "'''\n")
+
+(println "Sketch 3")
+(define sk3 (ast?? (list i x '(void)) 2))
+(do-synth (if (equal? i 2) i x) sk3 (list i x))
+(display "\n")
+|#
