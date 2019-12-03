@@ -3,6 +3,7 @@
 (require racket/format)
 (require rosette/lib/synthax)
 (require rosette/lib/angelic)
+(require (only-in racket/base [equal? racket:equal?]))
 (require "lang/core.rkt")
 (require "lang/datastore.rkt")
 (require "compiler.rkt")
@@ -111,7 +112,8 @@
   (if (sat? sol)
       (begin
         (displayln "Sat")
-        (define solc (complete-solution sol (symbolics sketch)))
+        (define hole-vars (remove* vars (symbolics sketch) racket:equal?))
+        (define solc (complete-solution sol hole-vars))
         (define raw (evaluate sketch solc))
         (displayln (format "Raw: ~a" raw))
         (define opt (opt:optimize raw))
