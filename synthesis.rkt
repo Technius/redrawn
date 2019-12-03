@@ -11,26 +11,28 @@
 
 ; Arbitrary AST node hole
 (define (ast?? terminals max-depth [block-length 0])
+  (define bool-terms (filter boolean? terminals))
   (define (block-hole h)
     (if (> block-length 0)
         (list `(block ,@(build-list block-length (lambda (_) (h)))))
         '()))
   (define (go-boolean d [consts? #t])
     (define t
-      (let [(t_ (filter boolean? terminals))]
-        (if consts? (cons (?? boolean?) t_) t_)))
+      (if consts? (cons (?? boolean?) bool-terms) bool-terms))
     (if (<= d 0)
         (apply choose* t)
         (begin
           (define e1 (go-boolean (- d 1) consts?))
           (define e2 (go-boolean (- d 1) consts?))
+          (define ea1 (go (- d 1)))
+          (define ea2 (go (- d 1)))
           (define holes
             (append
-             (block-hole (lambda () (go (- d 1))))
+             (block-hole (thunk (go (- d 1))))
              (list
-              `(contains ,(go (- d 1)))
+              `(contains ,ea1)
               `(,(choose* '&& '||) ,e1 ,e2)
-              `(== ,(go (- d 1)) ,(go (- d 1)))
+              `(== ,ea1 ,ea2)
               `(if ,(go-boolean (- d 1) consts?) ,e1 ,e2))
              t))
           (apply choose* holes))))
@@ -43,7 +45,7 @@
           (define e2 (go-integer (- d 1)))
           (define holes
             (append
-             (block-hole (lambda () (go (- d 1))))
+             (block-hole (thunk (go (- d 1))))
              (list
               `(,(choose* '+ '-) ,e1 ,e2)
               `(if ,(go-boolean (- d 1)) ,e1 ,e2))
