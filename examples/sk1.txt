@@ -1,2 +1,3 @@
-(block ,(ast?? (list i '(void)) 1)
-          (get ,i)))
+(block
+    (ast?? 1)
+    (get x))

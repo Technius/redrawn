@@ -1,0 +1,18 @@
+(block
+    (store i 10)
+    (store x (* 10 x))
+    (ast?? 2)
+    (store 3 30)
+    (if (contains 2)
+        ((store x (* 10 x))
+        (store (* 2 i) 50)
+        (del 1 10)
+        (if (contains 6)
+            (if b
+                (store 2 (*2 2))
+                (ast?? 1))
+            (store 6 60)))
+        (del i (*10 i)))
+    (if (== 50 (get x))
+        (ast?? 1)
+        (get 4)))

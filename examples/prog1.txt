@@ -1,1 +1,3 @@
-(block (store ,i 5) (get ,i))
+(block
+    (store i 5)
+    (get i))
