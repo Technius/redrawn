@@ -105,11 +105,12 @@
 
   (displayln "___________\n")
   (displayln "Auto sketching translation")
-  (define asketch (v1v2trans/s prog))
-  (printf "Sketch: ~a\n" (pretty-format asketch))
+  (define asketch null)
   (define as-prog
     (run-benchmark
      (thunk
+      (set! asketch (v1v2trans/s prog))
+      (printf "Sketch: ~a\n" (pretty-format asketch))
       (do-synth (run prog #:init-vars inputs)
                 asketch (symbolics inputs)
                 #:init-vars inputs))))
