@@ -1,0 +1,5 @@
+(block (store 0 0) 
+              (store 1 1)
+              (del 0)
+              ,(ast?? (list i x) 1)
+              (if (contains 0) (get 0) (get 1)))
