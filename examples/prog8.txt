@@ -1,0 +1,5 @@
+(block
+  (if b
+    (store 0 (+ x 10))
+    (store 0 (+ x 20)))
+  (get 0))

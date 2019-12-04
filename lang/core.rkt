@@ -100,11 +100,11 @@
 ; arbitrary terms.
 ;
 ; Two interpreters can be composed to get another interpreter.
-(define (run-program interpreter prog #:init-vars [init-vars '()])
+(define (run-program interpreter prog #:init-vars [init-vars '()] #:init-ctx [init-ctx '()])
   (define (eval-fun expr ctx vars)
 ;    (printf "Step: ~A\n" expr)
     (interpreter stuck eval-fun expr ctx vars))
-  (match-let ([(list val ctx vars) (eval-fun prog '() init-vars)])
+  (match-let ([(list val ctx vars) (eval-fun prog init-ctx init-vars)])
     val))
 
 (module+ test

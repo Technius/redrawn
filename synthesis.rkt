@@ -97,27 +97,35 @@
 (define (v1v2trans/s prog)
     (run-translate (compose-translate translate-ds-v1-v2/sketching translate-core) prog))
 
-(define (run p #:init-vars [init-vars '()])
+(define (run p #:init-vars [init-vars '()] #:init-ctx [init-ctx '()])
   (define interp
     (compose-interpreter* rosette-eval
                           datastore-eval/rules-v2
                           datastore-eval/rules
                           core-eval))
-  (run-program interp p #:init-vars init-vars))
+  (run-program interp p #:init-vars init-vars #:init-ctx init-ctx))
 
 (define (do-synth output sketch vars #:init-vars [init-vars '()])
-  (define sol (synthesize
-                #:forall vars
-                #:guarantee (assert (equal? output (run sketch #:init-vars init-vars)))))
+  (define init-store
+    (build-list 10
+                (lambda (i)
+                  (define-symbolic* storei integer?)
+                  `(,i ,storei))))
+  (define sol
+    (synthesize
+     #:forall (append vars (symbolics init-store))
+     #:guarantee
+     (assert (equal? output (run sketch #:init-vars init-vars
+                                 #:init-ctx init-store)))))
   (if (sat? sol)
       (begin
         (displayln "Sat")
         (define hole-vars (remove* vars (symbolics sketch) racket:equal?))
         (define solc (complete-solution sol hole-vars))
         (define raw (evaluate sketch solc))
-        (displayln (format "Raw: ~a" raw))
+        (printf "Raw: ~a\n" (pretty-format raw))
         (define opt (opt:optimize raw))
-        (displayln (format "Opt: ~a" opt))
+        (printf "Opt: ~a\n" (pretty-format opt))
         opt)
         (displayln "Unsat")))
 
