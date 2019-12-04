@@ -29,12 +29,15 @@
           (define e2 (go-boolean (- d 1) consts?))
           (define ea1 (go (- d 1)))
           (define ea2 (go (- d 1)))
+          (define ei1 (go-integer (- d 1)))
+          (define ei2 (go-integer (- d 1)))
           (define holes
             (append
              (block-hole (thunk (go (- d 1))))
              (list
               `(contains ,ea1)
               `(,(choose* '&& '||) ,e1 ,e2)
+              `(,(choose* '>= '<= '> '<) ,ei1 ,ei2)
               `(== ,ea1 ,ea2)
               `(if ,(go-boolean (- d 1) consts?) ,e1 ,e2))
              t))
@@ -50,7 +53,7 @@
             (append
              (block-hole (thunk (go (- d 1))))
              (list
-              `(,(choose* '+ '-) ,e1 ,e2)
+              `(,(choose* '+ '- '* '/) ,e1 ,e2)
               `(if ,(go-boolean (- d 1)) ,e1 ,e2))
               t))
           (apply choose* holes))))
