@@ -29,6 +29,12 @@
    #:args (path)
    path))
 
+(define syn-depth (synthesis-depth))
+(when (string? syn-depth)
+  (set! syn-depth (string->number syn-depth))
+  (when (not (integer? syn-depth))
+    (raise-user-error 'main "Depth must be a positive integer")))
+
 ; Parse initial variables
 (define kv-pairs
   (map (lambda (s) (string-split s #px":")) (init-vars)))
@@ -143,7 +149,7 @@
     (run-benchmark
      (thunk
       (do-synth (run prog #:init-vars inputs)
-                (ast?? terminals (synthesis-depth) 0) (symbolics inputs)
+                (ast?? terminals syn-depth 0) (symbolics inputs)
                 #:init-vars inputs))))
   (printf "Number of AST nodes: ~a\n" (length (flatten f-prog)))
   )
