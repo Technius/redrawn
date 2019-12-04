@@ -108,18 +108,16 @@
                           core-eval))
   (run-program interp p #:init-vars init-vars #:init-ctx init-ctx))
 
-(define (do-synth output sketch vars #:init-vars [init-vars '()])
-  (define init-store
-    (build-list 10
-                (lambda (i)
-                  (define-symbolic* storei integer?)
-                  `(,i ,storei))))
+(define (do-synth output sketch vars #:init-vars [init-vars '()] #:init-store [init-store '()])
   (define sol
     (synthesize
      #:forall (append vars (symbolics init-store))
      #:guarantee
-     (assert (equal? output (run sketch #:init-vars init-vars
-                                 #:init-ctx init-store)))))
+     (begin
+       (define actual (run sketch #:init-vars init-vars #:init-ctx init-store))
+       ; Sometimes this fails w/ the nondeterministic store even if the values
+       ; are equal. Not sure why.
+       (assert (equal? output actual)))))
   (if (sat? sol)
       (begin
         (displayln "Sat")

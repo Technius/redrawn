@@ -12,6 +12,7 @@
 (define init-vars (make-parameter '()))
 (define synthesis-depth (make-parameter 1))
 (define manual-sketch-file (make-parameter null))
+(define nondet-store (make-parameter #f))
 
 (define source-file-path
   (command-line
@@ -22,6 +23,7 @@
    [("-s" "--manual-sketch") ms
                              "File of manual sketch (holes are specified with (ast?? ))"
                              (manual-sketch-file ms)]
+   ["--nd" "Initialize datastore to nondeterministic values" (nondet-store #t)]
    #:multi
    [("-v" "--var") vv
                     "Define initial variables"
@@ -103,6 +105,20 @@
         p))))
   (printf "Number of AST nodes: ~a\n" (length (flatten m-prog)))
 
+  (define init-store
+    (if (nondet-store)
+        (build-list 10
+                    (lambda (i)
+                      (define-symbolic* storei integer?)
+                      `(,i ,storei)))
+        '()))
+
+  (define v1-interp
+    (compose-interpreter* rosette-eval
+                          datastore-eval/rules
+                          core-eval))
+  (define output (run-program v1-interp prog #:init-vars inputs #:init-ctx init-store))
+
   (displayln "___________\n")
   (displayln "Auto sketching translation")
   (define asketch null)
@@ -111,9 +127,8 @@
      (thunk
       (set! asketch (v1v2trans/s prog))
       (printf "Sketch: ~a\n" (pretty-format asketch))
-      (do-synth (run prog #:init-vars inputs)
-                asketch (symbolics inputs)
-                #:init-vars inputs))))
+      (do-synth output asketch (symbolics inputs)
+                #:init-vars inputs #:init-store init-store))))
   (printf "Number of AST nodes: ~a\n" (length (flatten as-prog)))
 
   (define terminals
@@ -138,9 +153,8 @@
     (define ms-prog
       (run-benchmark
        (thunk
-        (do-synth (run prog #:init-vars inputs)
-                  msketch (symbolics inputs)
-                  #:init-vars inputs))))
+        (do-synth output msketch (symbolics inputs)
+                  #:init-vars inputs #:init-store init-store))))
     (printf "Number of AST nodes: ~a\n" (length (flatten ms-prog)))
     )
 
@@ -149,9 +163,8 @@
   (define f-prog
     (run-benchmark
      (thunk
-      (do-synth (run prog #:init-vars inputs)
-                (ast?? terminals syn-depth 0) (symbolics inputs)
-                #:init-vars inputs))))
+      (do-synth output (ast?? terminals syn-depth 0) (symbolics inputs)
+                #:init-vars inputs #:init-store init-store))))
   (printf "Number of AST nodes: ~a\n" (length (flatten f-prog)))
   )
 
