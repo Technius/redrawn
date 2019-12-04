@@ -126,8 +126,13 @@
                 #:forall vars
                 #:guarantee (assert (equal? output (run sketch)))))
   (if (sat? sol)
-      (displayln (number-nodes (opt:optimize (evaluate sketch sol))))
-      (displayln "Unsat")))
+      (begin
+        (define hole-vars (remove* vars (symbolics sketch) racket:equal?))
+        (define solc (complete-solution sol hole-vars))
+        (define raw (evaluate sketch solc))
+        (define opt (opt:optimize raw))
+        (displayln (number-nodes opt)))
+        (displayln "Unsat")))
 #|
 ;; Demo_1
 (define p1 `(block (store ,i 5) (get ,i)))
