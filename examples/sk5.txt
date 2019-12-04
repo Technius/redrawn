@@ -4,7 +4,7 @@
     (ast?? 2)
     (store 3 30)
     (if (contains 2)
-        ((store x (* 10 x))
+        (block (store x (* 10 x))
         (store (* 2 i) 50)
         (del 1 10)
         (if (contains 6)
