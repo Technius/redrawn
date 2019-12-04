@@ -10,9 +10,18 @@
 (require "synthesis.rkt")
 
 (define init-vars (make-parameter '()))
+(define synthesis-depth (make-parameter 1))
+(define manual-sketch-file (make-parameter null))
 
 (define source-file-path
   (command-line
+   #:once-each
+   [("-d" "--depth") d
+                     "Synthesis depth"
+                     (synthesis-depth d)]
+   [("-s" "--manual-sketch") ms
+                             "File of manual sketch (holes are specified with (ast?? ))"
+                             (manual-sketch-file ms)]
    #:multi
    [("-v" "--var") vv
                     "Define initial variables"
@@ -73,7 +82,7 @@
     (printf "TIME: ~a ms\n" delta)
     ret))
 
-(define (demo prog)
+(define (demo prog ms-prog-file)
   (displayln "___________\n")
   (displayln "Original program")
   (pretty-print prog)
@@ -91,6 +100,7 @@
   (displayln "___________\n")
   (displayln "Auto sketching translation")
   (define asketch (v1v2trans/s prog))
+  (printf "Sketch: ~a\n" (pretty-format asketch))
   (define as-prog
     (run-benchmark
      (thunk
@@ -99,32 +109,43 @@
                 #:init-vars inputs))))
   (printf "Number of AST nodes: ~a\n" (length (flatten as-prog)))
 
-  (displayln "___________\n")
-  (displayln "Manual sketching translation")
-  ; TODO: Load manual sketch
-  (define msketch '(block))
-  (define ms-prog
-    (run-benchmark
-     (thunk
-      (do-synth (run prog #:init-vars inputs)
-                msketch (symbolics inputs)
-                #:init-vars inputs))))
-  (printf "Number of AST nodes: ~a\n" (length (flatten ms-prog)))
-
-  (displayln "___________\n")
-  (displayln "Full program synthesis")
   (define terminals
     (for/list ([i inputs])
       (match i
         [(cons x v) x]
         [x x])))
+
+  (when (not (equal? null ms-prog-file))
+    (displayln "___________\n")
+    (displayln "Manual sketching translation")
+    (define msketch
+      (read (open-input-file ms-prog-file #:mode 'text)))
+    (define (holify expr)
+      (match expr
+        [`(ast?? ,(? integer? d)) (ast?? terminals d)]
+        [`(,e ...) `(,@(map holify e))]
+        [_ expr]
+        ))
+    (set! msketch (holify msketch))
+    (printf "Sketch: ~a\n" (pretty-format msketch #:mode 'display))
+    (define ms-prog
+      (run-benchmark
+       (thunk
+        (do-synth (run prog #:init-vars inputs)
+                  msketch (symbolics inputs)
+                  #:init-vars inputs))))
+    (printf "Number of AST nodes: ~a\n" (length (flatten ms-prog)))
+    )
+
+  (displayln "___________\n")
+  (displayln "Full program synthesis")
   (define f-prog
     (run-benchmark
      (thunk
       (do-synth (run prog #:init-vars inputs)
-                (ast?? terminals 2 0) (symbolics inputs)
+                (ast?? terminals (synthesis-depth) 0) (symbolics inputs)
                 #:init-vars inputs))))
   (printf "Number of AST nodes: ~a\n" (length (flatten f-prog)))
   )
 
-(demo program)
+(demo program (manual-sketch-file))
