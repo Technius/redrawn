@@ -3,6 +3,7 @@
 (require racket/cmdline)
 (require racket/pretty)
 (require rosette/lib/synthax)
+(require (only-in rosette/base/core/reflect symbolics))
 (require "lang/core.rkt")
 (require "lang/datastore.rkt")
 (require "compiler.rkt")
@@ -31,7 +32,8 @@
       [else
        (printf "Error: invalid variable: ~a\n" p)
        (exit 1)]
-    )))
+      )))
+(define inputs (create-input-vars vars))
 
 (define program
   (read (open-input-file source-file-path #:mode 'text)))
@@ -60,67 +62,69 @@
             (store 10 10))
     (get 0)))
 
+(define (benchmark proc)
+  (define t1 (current-milliseconds))
+  (define ret (proc))
+  (define t2 (current-milliseconds))
+  (values ret (- t2 t1)))
 
-(define t1 (current-milliseconds))
-(define t2 (current-milliseconds))
+(define (run-benchmark proc)
+  (let-values ([(ret delta) (benchmark proc)])
+    (printf "TIME: ~a ms\n" delta)
+    ret))
 
-;; Demo
-(displayln "___________\n")
-(println "Original Program")
-(pretty-print program)
-(displayln "___________\n")
+(define (demo prog)
+  (displayln "___________\n")
+  (displayln "Original program")
+  (pretty-print prog)
 
-(println "Mechanical translation")
-(set! t1 (current-milliseconds))
-(pretty-print (v1v2trans program))
-(set! t2 (current-milliseconds))
-(display "\n")
-(displayln "--TIME--") (- t2 t1)
-(display "\n")
-(displayln "--Number of AST Nodes--") (displayln (number-nodes (v1v2trans program)))
+  (displayln "___________\n")
+  (displayln "Mechanical translation")
+  (define m-prog
+    (run-benchmark
+     (thunk
+      (let ([p (v1v2trans prog)])
+        (pretty-print p)
+        p))))
+  (printf "Number of AST nodes: ~a\n" (length (flatten m-prog)))
 
-(displayln "___________\n")
+  (displayln "___________\n")
+  (displayln "Auto sketching translation")
+  (define asketch (v1v2trans/s prog))
+  (define as-prog
+    (run-benchmark
+     (thunk
+      (do-synth (run prog #:init-vars inputs)
+                asketch (symbolics inputs)
+                #:init-vars inputs))))
+  (printf "Number of AST nodes: ~a\n" (length (flatten as-prog)))
 
-(println "Auto-Sketching translation")
-(define asprog (v1v2trans/s program))
-(set! t1 (current-milliseconds))
-;(do-synth 5 asprog '())
-(do-synth '(void) asprog '())
-;(do-synth 0 asprog '())
-;
-;
-;
-(set! t2 (current-milliseconds))
-(display "\n")
-(displayln "--TIME--") (- t2 t1)
-(display "\n")
-(displayln "--Number of AST Nodes--")
-;(displayln (syn-count-node 5 asprog '()))
-(displayln (syn-count-node 0 asprog '()))
-;
-;
-;
-;
+  (displayln "___________\n")
+  (displayln "Manual sketching translation")
+  ; TODO: Load manual sketch
+  (define msketch '(block))
+  (define ms-prog
+    (run-benchmark
+     (thunk
+      (do-synth (run prog #:init-vars inputs)
+                msketch (symbolics inputs)
+                #:init-vars inputs))))
+  (printf "Number of AST nodes: ~a\n" (length (flatten ms-prog)))
 
-(displayln "___________\n")
+  (displayln "___________\n")
+  (displayln "Full program synthesis")
+  (define terminals
+    (for/list ([i inputs])
+      (match i
+        [(cons x v) x]
+        [x x])))
+  (define f-prog
+    (run-benchmark
+     (thunk
+      (do-synth (run prog #:init-vars inputs)
+                (ast?? terminals 2 0) (symbolics inputs)
+                #:init-vars inputs))))
+  (printf "Number of AST nodes: ~a\n" (length (flatten f-prog)))
+  )
 
-(println "Manual-Sketching translation")
-(set! t1 (current-milliseconds))
-;(do-synth 5 sk1 '())
-(do-synth 0 sk2 '())
-;
-;
-;
-;
-(set! t2 (current-milliseconds))
-(display "\n")
-(displayln "--TIME--") (- t2 t1)
-(display "\n")
-(displayln "--Number of AST Nodes--")
-;(displayln (syn-count-node 5 sk1 '()))
-(displayln (syn-count-node 0 sk2 '()))
-;
-;
-;
-;
-(display "\n")
+(demo program)
