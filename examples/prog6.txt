@@ -12,7 +12,7 @@
         (store 10 10)))
     (if (contains 3)
         (block (del 1)
-        (del 2))
+        (del 3))
         (block (if (|| (contains 5) (contains 4))
             (if (== (get i) i)
                 (del (* 2 1))
