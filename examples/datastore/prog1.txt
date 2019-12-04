@@ -1,2 +1,0 @@
-(block (store 1 (+ 2 2))
-       (store 2 3))

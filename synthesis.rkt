@@ -8,7 +8,9 @@
 (require "lang/datastore.rkt")
 (require "compiler.rkt")
 
-(provide ast?? create-input-vars)
+(provide ast?? create-input-vars
+        v1v2trans v1v2trans/s run
+        do-synth syn-count-node)
 
 ; Arbitrary AST node hole
 (define (ast?? terminals max-depth [block-length 0])
@@ -86,8 +88,6 @@
       [_ p])))
 
 
-(define-symbolic i integer?)
-(define-symbolic x integer?)
 
 (require (prefix-in opt: "optimize.rkt"))
 
@@ -95,7 +95,7 @@
     (run-translate (compose-translate translate-ds-v1-v2 translate-core) prog))
 
 (define (v1v2trans/s prog)
-  (run-translate (compose-translate translate-ds-v1-v2/sketching translate-core) prog))
+    (run-translate (compose-translate translate-ds-v1-v2/sketching translate-core) prog))
 
 (define (run p)
   (define interp
@@ -128,7 +128,7 @@
   (if (sat? sol)
       (displayln (number-nodes (opt:optimize (evaluate sketch sol))))
       (displayln "Unsat")))
-
+#|
 ;; Demo_1
 (define p1 `(block (store ,i 5) (get ,i)))
 (displayln "'''")
@@ -147,7 +147,7 @@
 
 (println "Sketch 1")
 (define sk1
-  `(block ,(ast?? (list i '(void)) 1)
+  `(block ,(ast?? (list i) 1)
           (get ,i)))
 (do-synth 5 sk1 (list i))
 (display "\n")
@@ -299,7 +299,7 @@
 (display "Number of AST nodes in direct translated program - ") (displayln (number-nodes (v1v2trans p4)))
 (display "Number of AST nodes in synthesized program - ") (syn-count-node 0 sk4 (list i x))
 (displayln "'''\n")
-
+|#
 #|
 ;; Demo_5
 (define p5 `(block))

@@ -49,9 +49,9 @@
     [`(get ,e)
      (match-define (list key nctx nvars) (f e ctx vars))
      (for/all ([result (assoc key nctx)])
-       (match result
-         [(cons key v) `(,v ,nctx ,nvars)]
-         [#f (error 'datastore "No such datastore key: ~e" key)]))]
+        (match result
+          [(cons key v) `(,v ,nctx ,nvars)]
+          [#f (error 'datastore "No such datastore key: ~e" key)]))]
     [_ (cont f expr ctx vars)]))
 
 (define (datastore-eval cont f expr ctx vars)
