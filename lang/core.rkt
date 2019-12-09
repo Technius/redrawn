@@ -43,6 +43,7 @@
 ; Interpreter for core language terms.
 (define (core-eval cont f expr ctx vars)
   (match expr
+    ['(void) `((void) ,ctx ,vars)]
     [(? number? lit) `(,lit ,ctx ,vars)]
     [(? boolean? lit) `(,lit ,ctx ,vars)]
     [(? symbol? x)
@@ -131,6 +132,7 @@
   (check-equal? (run '(block (let x 10) (+ x 10))) 20)
   (check-equal? (run '(block (if #t (let y 10) (let y 20)) y)) 10)
   (check-equal? (run '(block (if #f (let y 10) (let y 20)) y)) 20)
+  (check-equal? (run '(block (void))) '(void))
   )
 
 ; Numbers symbols in an expr AST, returning a tree containing the corresponding
