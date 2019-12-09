@@ -1,0 +1,4 @@
+(block
+  (let old (if (contains k) (get k) (void)))
+  (store k v)
+  old)
