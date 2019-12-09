@@ -95,16 +95,6 @@
   (displayln "Original program")
   (pretty-print prog)
 
-  (displayln "___________\n")
-  (displayln "Mechanical translation")
-  (define m-prog
-    (run-benchmark
-     (thunk
-      (let ([p (v1v2trans prog)])
-        (pretty-print p)
-        p))))
-  (printf "Number of AST nodes: ~a\n" (length (flatten m-prog)))
-
   (define init-store
     (if (nondet-store)
         (build-list 10
@@ -118,6 +108,18 @@
                           datastore-eval/rules
                           core-eval))
   (define output (run-program v1-interp prog #:init-vars inputs #:init-ctx init-store))
+  (printf "Output: ~a\n" output)
+
+  (displayln "___________\n")
+  (displayln "Mechanical translation")
+  (define m-prog
+    (run-benchmark
+     (thunk
+      (let ([p (v1v2trans prog)])
+        (pretty-print p)
+        p))))
+  (printf "Number of AST nodes: ~a\n" (length (flatten m-prog)))
+  (printf "Output: ~a\n" (run output #:init-vars inputs #:init-ctx init-store))
 
   (displayln "___________\n")
   (displayln "Auto sketching translation")
