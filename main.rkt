@@ -119,7 +119,7 @@
         (pretty-print p)
         p))))
   (printf "Number of AST nodes: ~a\n" (length (flatten m-prog)))
-  (printf "Output: ~a\n" (run output #:init-vars inputs #:init-ctx init-store))
+  (printf "Output: ~a\n" (run m-prog #:init-vars inputs #:init-ctx init-store))
 
   (displayln "___________\n")
   (displayln "Auto sketching translation")
@@ -132,6 +132,8 @@
       (do-synth output asketch (symbolics inputs)
                 #:init-vars inputs #:init-store init-store))))
   (printf "Number of AST nodes: ~a\n" (length (flatten as-prog)))
+  (unless (equal? (void) as-prog)
+    (printf "Output: ~a\n" (run as-prog #:init-vars inputs #:init-ctx init-store)))
 
   (define terminals
     (for/list ([i inputs])
@@ -168,6 +170,8 @@
       (do-synth output (ast?? terminals syn-depth 0) (symbolics inputs)
                 #:init-vars inputs #:init-store init-store))))
   (printf "Number of AST nodes: ~a\n" (length (flatten f-prog)))
+  (unless (equal? (void) f-prog)
+    (printf "Output: ~a\n" (run f-prog #:init-vars inputs #:init-ctx init-store)))
   )
 
 (demo program (manual-sketch-file))
