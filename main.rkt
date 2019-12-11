@@ -94,6 +94,7 @@
   (displayln "___________\n")
   (displayln "Original program")
   (pretty-print prog)
+  (printf "Number of AST nodes: ~a\n" (length (flatten prog)))
 
   (define init-store
     (if (nondet-store)
